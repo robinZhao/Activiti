@@ -13,19 +13,22 @@
 
 package org.activiti.engine;
 
-import java.io.InputStream;
-import java.util.Date;
-import java.util.List;
-
 import org.activiti.bpmn.model.BpmnModel;
 import org.activiti.engine.repository.DeploymentBuilder;
 import org.activiti.engine.repository.DeploymentQuery;
 import org.activiti.engine.repository.DiagramLayout;
 import org.activiti.engine.repository.Model;
 import org.activiti.engine.repository.ModelQuery;
+import org.activiti.engine.repository.NativeDeploymentQuery;
+import org.activiti.engine.repository.NativeModelQuery;
+import org.activiti.engine.repository.NativeProcessDefinitionQuery;
 import org.activiti.engine.repository.ProcessDefinition;
 import org.activiti.engine.repository.ProcessDefinitionQuery;
 import org.activiti.engine.task.IdentityLink;
+
+import java.io.InputStream;
+import java.util.Date;
+import java.util.List;
 
 
 /** Service providing access to the repository of process definitions and deployments.
@@ -34,6 +37,7 @@ import org.activiti.engine.task.IdentityLink;
  * @author Falko Menge
  * @author Tijs Rademakers
  * @author Joram Barrez
+ * @author Henry Yan
  */
 public interface RepositoryService {
 
@@ -61,6 +65,14 @@ public interface RepositoryService {
    * @param deploymentId id of the deployment, cannot be null.
    */
   void deleteDeployment(String deploymentId, boolean cascade);
+  
+  /**
+   * Sets the category of the deployment.
+   * Deployments can be queried by category: see {@link DeploymentQuery#deploymentCategory(String)}.
+   * 
+   * @throws ActivitiObjectNotFoundException if no deployment with the provided id can be found.
+   */
+  void setDeploymentCategory(String deploymentId, String category);
 
   /**
    * Retrieves a list of deployment resources for the given deployment, 
@@ -80,9 +92,19 @@ public interface RepositoryService {
 
   /** Query process definitions. */
   ProcessDefinitionQuery createProcessDefinitionQuery();
+
+  /**
+   * Returns a new {@link org.activiti.engine.query.NativeQuery} for process definitions.
+   */
+  NativeProcessDefinitionQuery createNativeProcessDefinitionQuery();
   
-  /** Query process definitions. */
+  /** Query deployment. */
   DeploymentQuery createDeploymentQuery();
+
+  /**
+   * Returns a new {@link org.activiti.engine.query.NativeQuery} for deployment.
+   */
+  NativeDeploymentQuery createNativeDeploymentQuery();
   
   /**
    * Suspends the process definition with the given id. 
@@ -155,9 +177,7 @@ public interface RepositoryService {
   /**
    * Activates the process definition with the given id. 
    * 
-   * @param suspendProcessInstances If true, all the process instances of the provided process definition
-   *                                will be activated too.
-   * @param activationDate The date on which the process definition will be activated. If null, the 
+   * @param activationDate The date on which the process definition will be activated. If null, the
    *                       process definition is suspended immediately. 
    *                       Note: The job executor needs to be active to use this!                                 
    *                                
@@ -177,9 +197,7 @@ public interface RepositoryService {
   /**
    * Activates the process definition with the given key (=id in the bpmn20.xml file). 
    * 
-   * @param suspendProcessInstances If true, all the process instances of the provided process definition
-   *                                will be activated too.
-   * @param activationDate The date on which the process definition will be activated. If null, the 
+   * @param activationDate The date on which the process definition will be activated. If null, the
    *                       process definition is suspended immediately. 
    *                       Note: The job executor needs to be active to use this!                                 
    *                                
@@ -187,6 +205,14 @@ public interface RepositoryService {
    * @throws ActivitiException if the process definition is already in state active.
    */
   void activateProcessDefinitionByKey(String processDefinitionKey, boolean activateProcessInstances,  Date activationDate);
+  
+  /**
+   * Sets the category of the process definition.
+   * Process definitions can be queried by category: see {@link ProcessDefinitionQuery#processDefinitionCategory(String)}.
+   * 
+   * @throws ActivitiObjectNotFoundException if no process defintion with the provided id can be found.
+   */
+  void setProcessDefinitionCategory(String processDefinitionId, String category);
 
   /**
    * Gives access to a deployed process model, e.g., a BPMN 2.0 XML file,
@@ -272,6 +298,11 @@ public interface RepositoryService {
   
   /** Query models. */
   public ModelQuery createModelQuery();
+
+  /**
+   * Returns a new {@link org.activiti.engine.query.NativeQuery} for process definitions.
+   */
+  NativeModelQuery createNativeModelQuery();
   
   /**
    * Returns the {@link Model}

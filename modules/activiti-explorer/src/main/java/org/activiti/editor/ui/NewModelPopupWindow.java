@@ -22,7 +22,7 @@ import org.activiti.explorer.Messages;
 import org.activiti.explorer.NotificationManager;
 import org.activiti.explorer.ui.custom.PopupWindow;
 import org.activiti.explorer.ui.mainlayout.ExplorerLayout;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.ObjectNode;
 
@@ -40,6 +40,8 @@ import com.vaadin.ui.TextArea;
 import com.vaadin.ui.TextField;
 import com.vaadin.ui.VerticalLayout;
 import com.vaadin.ui.themes.Reindeer;
+
+import java.net.URL;
 
 
 /**
@@ -157,8 +159,10 @@ public class NewModelPopupWindow extends PopupWindow implements ModelDataJsonCon
             close();
             
             ExplorerApp.get().getViewManager().showEditorProcessDefinitionPage(modelData.getId());
-            ExplorerApp.get().getMainWindow().open(new ExternalResource(
-                ExplorerApp.get().getURL().toString().replace("/ui", "") + "service/editor?id=" + modelData.getId()));
+	          URL explorerURL = ExplorerApp.get().getURL();
+	          URL url = new URL(explorerURL.getProtocol(), explorerURL.getHost(), explorerURL.getPort(),
+					          explorerURL.getPath().replace("/ui", "") + "service/editor?id=" + modelData.getId());
+            ExplorerApp.get().getMainWindow().open(new ExternalResource(url));
             
           } catch(Exception e) {
             notificationManager.showErrorNotification("error", e);

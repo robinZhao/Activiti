@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.activiti.engine.delegate.Expression;
+import org.activiti.engine.delegate.event.impl.ActivitiEventSupport;
 import org.activiti.engine.impl.bpmn.parser.BpmnParse;
 import org.activiti.engine.impl.context.Context;
 import org.activiti.engine.impl.db.HasRevision;
@@ -59,9 +60,12 @@ public class ProcessDefinitionEntity extends ProcessDefinitionImpl implements Pr
   protected List<IdentityLinkEntity> definitionIdentityLinkEntities = new ArrayList<IdentityLinkEntity>();
   protected Set<Expression> candidateStarterUserIdExpressions = new HashSet<Expression>();
   protected Set<Expression> candidateStarterGroupIdExpressions = new HashSet<Expression>();
+  // TODO: serialisation support?
+  protected transient ActivitiEventSupport eventSupport;
   
   public ProcessDefinitionEntity() {
     super(null);
+    eventSupport = new ActivitiEventSupport();
   }
   
   public ExecutionEntity createProcessInstance(String businessKey, ActivityImpl initial) {
@@ -115,12 +119,13 @@ public class ProcessDefinitionEntity extends ProcessDefinitionImpl implements Pr
   }
   
   public IdentityLinkEntity addIdentityLink(String userId, String groupId) {
-    IdentityLinkEntity identityLinkEntity = IdentityLinkEntity.createAndInsert();
+    IdentityLinkEntity identityLinkEntity = new IdentityLinkEntity();
     getIdentityLinks().add(identityLinkEntity);
     identityLinkEntity.setProcessDef(this);
     identityLinkEntity.setUserId(userId);
     identityLinkEntity.setGroupId(groupId);
     identityLinkEntity.setType(IdentityLinkType.CANDIDATE);
+    identityLinkEntity.insert();
     return identityLinkEntity;
   }
   
@@ -133,8 +138,8 @@ public class ProcessDefinitionEntity extends ProcessDefinitionImpl implements Pr
     for (IdentityLinkEntity identityLink: identityLinks) {
       Context
         .getCommandContext()
-        .getDbSqlSession()
-        .delete(identityLink);
+        .getIdentityLinkEntityManager()
+        .deleteIdentityLink(identityLink, false);
     }
   }
   
@@ -160,6 +165,7 @@ public class ProcessDefinitionEntity extends ProcessDefinitionImpl implements Pr
   public Object getPersistentState() {
     Map<String, Object> persistentState = new HashMap<String, Object>();  
     persistentState.put("suspensionState", this.suspensionState);
+    persistentState.put("category", this.category);
     return persistentState;
   }
   
@@ -308,5 +314,9 @@ public class ProcessDefinitionEntity extends ProcessDefinitionImpl implements Pr
 
   public void addCandidateStarterGroupIdExpression(Expression groupId) {
     candidateStarterGroupIdExpressions.add(groupId);
+  }
+  
+  public ActivitiEventSupport getEventSupport() {
+	  return eventSupport;
   }
 }

@@ -16,6 +16,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import org.activiti.engine.delegate.event.ActivitiEvent;
+import org.activiti.engine.delegate.event.ActivitiEventDispatcher;
+import org.activiti.engine.delegate.event.ActivitiEventListener;
+import org.activiti.engine.delegate.event.ActivitiEventType;
 import org.activiti.engine.runtime.Execution;
 import org.activiti.engine.runtime.ExecutionQuery;
 import org.activiti.engine.runtime.NativeExecutionQuery;
@@ -267,6 +271,12 @@ public interface RuntimeService {
    */
   void signal(String executionId, Map<String, Object> processVariables);
   
+  /** Updates the business key for the provided process instance
+   * @param processInstanceId id of the process instance to set the business key, cannot be null
+   * @param businessKey new businessKey value
+   */
+  void updateBusinessKey(String processInstanceId, String businessKey);
+  
   // Identity Links ///////////////////////////////////////////////////////////////
   
   /**
@@ -322,10 +332,16 @@ public interface RuntimeService {
    * @return the variable value or null if the variable is undefined or the value of the variable is null.
    * @throws ActivitiObjectNotFoundException when no execution is found for the given executionId. */
   Object getVariable(String executionId, String variableName);
+  
+  /** Check whether or not this execution has variable set with the given name, Searching for the variable is done in all scopes that are visible to the given execution (including parent scopes). */
+  boolean hasVariable(String executionId, String variableName);
 
   /** The variable value for an execution. Returns the value when the variable is set 
    * for the execution (and not searching parent scopes). Returns null when no variable value is found with the given name or when the value is set to null.  */
   Object getVariableLocal(String executionId, String variableName);
+  
+  /** Check whether or not this execution has a local variable set with the given name. */
+  boolean hasVariableLocal(String executionId, String variableName);
 
   /** Update or create a variable for an execution.  If the variable is not already existing somewhere in the execution hierarchy,
    * it will be created in the process instance (which is the root execution). 
@@ -457,6 +473,16 @@ public interface RuntimeService {
   /**
    * Notifies the process engine that a signal event of name 'signalName' has
    * been received. This method delivers the signal to all executions waiting on
+   * the signal.<p/> 
+   * 
+   * @param signalName
+   *          the name of the signal event
+   */
+  void signalEventReceivedAsync(String signalName);
+  
+  /**
+   * Notifies the process engine that a signal event of name 'signalName' has
+   * been received. This method delivers the signal to all executions waiting on
    * the signal.<p/>
    * 
    * <strong>NOTE:</strong> The waiting executions are notified synchronously.
@@ -501,6 +527,21 @@ public interface RuntimeService {
   void signalEventReceived(String signalName, String executionId, Map<String, Object> processVariables);
 
   /**
+   * Notifies the process engine that a signal event of name 'signalName' has
+   * been received. This method delivers the signal to a single execution, being the 
+   * execution referenced by 'executionId'. 
+   * The waiting execution is notified <strong>asynchronously</strong>.
+   * 
+   * @param signalName
+   *          the name of the signal event
+   * @param executionId
+   *          the id of the execution to deliver the signal to
+   * @throws ActivitiObjectNotFoundException if no such execution exists.
+   * @throws ActivitiException if the execution has not subscribed to the signal.
+   */
+  void signalEventReceivedAsync(String signalName, String executionId);
+  
+  /**
    * Notifies the process engine that a message event with name 'messageName' has
    * been received and has been correlated to an execution with id 'executionId'. 
    * 
@@ -531,5 +572,50 @@ public interface RuntimeService {
    * @throws ActivitiException if the execution has not subscribed to the signal
    */
   void messageEventReceived(String messageName, String executionId, Map<String, Object> processVariables);
+
+  /**
+   * Notifies the process engine that a message event with the name 'messageName' has
+   * been received and has been correlated to an execution with id 'executionId'. 
+   * 
+   * The waiting execution is notified <strong>asynchronously</strong>.
+   * 
+   * @param messageName
+   *          the name of the message event
+   * @param executionId
+   *          the id of the execution to deliver the message to
+   * @throws ActivitiObjectNotFoundException if no such execution exists.
+   * @throws ActivitiException if the execution has not subscribed to the signal
+   */
+  void messageEventReceivedAsync(String messageName, String executionId);
+  
+  /**
+	 * Adds an event-listener which will be notified of ALL events by the dispatcher.
+	 * @param listenerToAdd the listener to add
+	 */
+	void addEventListener(ActivitiEventListener listenerToAdd);
+	
+	/**
+	 * Adds an event-listener which will only be notified when an event occurs, which type is in the given types.
+	 * @param listenerToAdd the listener to add
+	 * @param types types of events the listener should be notified for
+	 */
+	void addEventListener(ActivitiEventListener listenerToAdd, ActivitiEventType... types);
+	
+	/**
+	 * Removes the given listener from this dispatcher. The listener will no longer be notified,
+	 * regardless of the type(s) it was registered for in the first place.
+	 * @param listenerToRemove listener to remove
+	 */
+	 void removeEventListener(ActivitiEventListener listenerToRemove);
+	 
+	/**
+	 * Dispatches the given event to any listeners that are registered.
+	 * @param event event to dispatch.
+	 * 
+	 * @throws ActivitiException if an exception occurs when dispatching the event or when the {@link ActivitiEventDispatcher}
+	 * is disabled.
+	 * @throws ActivitiIllegalArgumentException when the given event is not suitable for dispatching.
+	 */
+	 void dispatchEvent(ActivitiEvent event);
 
 }

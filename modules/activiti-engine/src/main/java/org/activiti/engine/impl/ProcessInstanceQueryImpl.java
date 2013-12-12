@@ -17,7 +17,6 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Set;
 
-import org.activiti.engine.ActivitiException;
 import org.activiti.engine.ActivitiIllegalArgumentException;
 import org.activiti.engine.impl.interceptor.CommandContext;
 import org.activiti.engine.impl.interceptor.CommandExecutor;
@@ -38,13 +37,17 @@ public class ProcessInstanceQueryImpl extends AbstractVariableQueryImpl<ProcessI
   private static final long serialVersionUID = 1L;
   protected String executionId;
   protected String businessKey;
+  protected boolean includeChildExecutionsWithBusinessKeyQuery;
   protected String processDefinitionId;
+  protected String processDefinitionName;
   protected Set<String> processInstanceIds; 
   protected String processDefinitionKey;
   protected String superProcessInstanceId;
   protected String subProcessInstanceId;
+  protected boolean excludeSubprocesses;
   protected String involvedUser;
   protected SuspensionState suspensionState;
+  protected boolean includeProcessVariables;
   
   // Unused, see dynamic query
   protected String activityId;
@@ -96,7 +99,16 @@ public class ProcessInstanceQueryImpl extends AbstractVariableQueryImpl<ProcessI
     this.processDefinitionKey = processDefinitionKey;
     return this;
   }
-  
+
+  @Override
+  public ProcessInstanceQuery processDefinitionName(String processDefinitionName) {
+    if (processDefinitionName == null) {
+	  throw new ActivitiIllegalArgumentException("Process definition name is null");
+    }
+    this.processDefinitionName = processDefinitionName;
+    return this;
+  }
+
   public ProcessInstanceQueryImpl processDefinitionId(String processDefinitionId) {
     if (processDefinitionId == null) {
       throw new ActivitiIllegalArgumentException("Process definition id is null");
@@ -120,6 +132,11 @@ public class ProcessInstanceQueryImpl extends AbstractVariableQueryImpl<ProcessI
   
   public ProcessInstanceQuery subProcessInstanceId(String subProcessInstanceId) {
     this.subProcessInstanceId = subProcessInstanceId;
+    return this;
+  }
+  
+  public ProcessInstanceQuery excludeSubprocesses(boolean excludeSubprocesses) {
+    this.excludeSubprocesses = excludeSubprocesses;
     return this;
   }
   
@@ -156,6 +173,21 @@ public class ProcessInstanceQueryImpl extends AbstractVariableQueryImpl<ProcessI
     return this;
   }
   
+  public ProcessInstanceQuery includeProcessVariables() {
+    this.includeProcessVariables = true;
+    return this;
+  }
+  
+  public String getMssqlOrDB2OrderBy() {
+    String specialOrderBy = super.getOrderBy();
+    if (specialOrderBy != null && specialOrderBy.length() > 0) {
+      specialOrderBy = specialOrderBy.replace("RES.", "TEMPRES_");
+      specialOrderBy = specialOrderBy.replace("ProcessDefinitionKey", "TEMPP_KEY_");
+      specialOrderBy = specialOrderBy.replace("ProcessDefinitionId", "TEMPP_ID_");
+    }
+    return specialOrderBy;
+  }
+  
   //results /////////////////////////////////////////////////////////////////
   
   public long executeCount(CommandContext commandContext) {
@@ -169,9 +201,15 @@ public class ProcessInstanceQueryImpl extends AbstractVariableQueryImpl<ProcessI
   public List<ProcessInstance> executeList(CommandContext commandContext, Page page) {
     checkQueryOk();
     ensureVariablesInitialized();
-    return commandContext
-      .getExecutionEntityManager()
-      .findProcessInstanceByQueryCriteria(this, page);
+    if (includeProcessVariables) {
+      return commandContext
+          .getExecutionEntityManager()
+          .findProcessInstanceAndVariablesByQueryCriteria(this);
+    } else {
+      return commandContext
+          .getExecutionEntityManager()
+          .findProcessInstanceByQueryCriteria(this);
+    }
   }
   
   //getters /////////////////////////////////////////////////////////////////
@@ -188,8 +226,14 @@ public class ProcessInstanceQueryImpl extends AbstractVariableQueryImpl<ProcessI
   public String getBusinessKey() {
     return businessKey;
   }
+  public boolean isIncludeChildExecutionsWithBusinessKeyQuery() {
+    return includeChildExecutionsWithBusinessKeyQuery;
+  }
   public String getProcessDefinitionId() {
     return processDefinitionId;
+  }
+  public String getProcessDefinitionName() {
+    return processDefinitionName;
   }
   public String getProcessDefinitionKey() {
     return processDefinitionKey;
@@ -202,7 +246,10 @@ public class ProcessInstanceQueryImpl extends AbstractVariableQueryImpl<ProcessI
   }
   public String getSubProcessInstanceId() {
     return subProcessInstanceId;
-  }  
+  }
+  public boolean isExcludeSubprocesses() {
+    return excludeSubprocesses;
+  }
   public String getInvolvedUser() {
     return involvedUser;
   }
@@ -219,5 +266,13 @@ public class ProcessInstanceQueryImpl extends AbstractVariableQueryImpl<ProcessI
 
   public void setEventSubscriptions(List<EventSubscriptionQueryValue> eventSubscriptions) {
     this.eventSubscriptions = eventSubscriptions;
+  }
+  
+  /**
+   * Method needed for ibatis because of re-use of query-xml for executions. ExecutionQuery contains
+   * a parentId property.
+   */
+  public String getParentId() {
+    return null;
   }
 }

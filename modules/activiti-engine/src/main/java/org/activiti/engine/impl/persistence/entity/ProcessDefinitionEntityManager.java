@@ -18,8 +18,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.activiti.engine.ActivitiException;
-import org.activiti.engine.identity.Group;
-import org.activiti.engine.identity.User;
 import org.activiti.engine.impl.Page;
 import org.activiti.engine.impl.ProcessDefinitionQueryImpl;
 import org.activiti.engine.impl.persistence.AbstractManager;
@@ -91,13 +89,13 @@ public class ProcessDefinitionEntityManager extends AbstractManager {
     return   new ProcessDefinitionQueryImpl().startableByUser(user).list();
   }
   
-  public List<User> findProcessDefinitionPotentialStarterUsers() {
-    return null;
-  }
-  
-  public List<Group> findProcessDefinitionPotentialStarterGroups() {
-    return null;
+  @SuppressWarnings("unchecked")
+  public List<ProcessDefinition> findProcessDefinitionsByNativeQuery(Map<String, Object> parameterMap, int firstResult, int maxResults) {
+    return getDbSqlSession().selectListWithRawParameter("selectProcessDefinitionByNativeQuery", parameterMap, firstResult, maxResults);
   }
 
+  public long findProcessDefinitionCountByNativeQuery(Map<String, Object> parameterMap) {
+    return (Long) getDbSqlSession().selectOne("selectProcessDefinitionCountByNativeQuery", parameterMap);
+  }
  
 }

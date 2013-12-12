@@ -15,6 +15,10 @@ package org.activiti.camel;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.FutureTask;
 
 import org.activiti.engine.ActivitiException;
 import org.activiti.engine.ProcessEngineConfiguration;
@@ -22,6 +26,7 @@ import org.activiti.engine.delegate.DelegateExecution;
 import org.activiti.engine.delegate.Expression;
 import org.activiti.engine.impl.bpmn.behavior.BpmnActivityBehavior;
 import org.activiti.engine.impl.context.Context;
+import org.activiti.engine.impl.pvm.PvmProcessDefinition;
 import org.activiti.engine.impl.pvm.delegate.ActivityBehavior;
 import org.activiti.engine.impl.pvm.delegate.ActivityExecution;
 import org.activiti.spring.SpringProcessEngineConfiguration;
@@ -29,7 +34,7 @@ import org.apache.camel.CamelContext;
 import org.apache.camel.Endpoint;
 import org.apache.camel.Exchange;
 import org.apache.camel.impl.DefaultExchange;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 /**
 * This abstract class takes the place of the now-deprecated CamelBehaviour class (which can still be used for legacy compatibility)
@@ -52,7 +57,7 @@ import org.apache.commons.lang.StringUtils;
 * copy the Camel body to the "camelBody" variable if it is of type java.lang.String, OR it will copy the Camel body to
 * individual variables within Activiti if it is of type Map<String,Object>.
 * 
-* @author Ryan Johnston (@rjfsu), Tijs Rademakers
+* @author Ryan Johnston (@rjfsu), Tijs Rademakers, Saeid Mirzaei
 * @version 5.12
 */
 public abstract class CamelBehavior extends BpmnActivityBehavior implements ActivityBehavior {
@@ -62,21 +67,70 @@ public abstract class CamelBehavior extends BpmnActivityBehavior implements Acti
   protected CamelContext camelContextObj;
   protected SpringProcessEngineConfiguration springConfiguration;
   
-  protected abstract void modifyActivitiComponent(ActivitiComponent component);
+  protected abstract void setPropertTargetVariable(ActivitiEndpoint endpoint);
   
-  protected abstract void copyVariables(Map<String, Object> variables, Exchange exchange, ActivitiEndpoint endpoint);
+  public enum TargetType {
+        BODY_AS_MAP, BODY, PROPERTIES
+      }  
 
+  protected TargetType toTargetType=null;
+  
+  protected void updateTargetVariables(ActivitiEndpoint endpoint) {
+    toTargetType = null;
+    if (endpoint.isCopyVariablesToBodyAsMap())
+      toTargetType = TargetType.BODY_AS_MAP;
+    else if (endpoint.isCopyCamelBodyToBody())
+      toTargetType = TargetType.BODY;
+    else if (endpoint.isCopyVariablesToProperties())
+      toTargetType = TargetType.PROPERTIES;
+
+    if (toTargetType == null)
+      setPropertTargetVariable(endpoint);
+  }
+  
+  protected void copyVariables(Map<String, Object> variables, Exchange exchange, ActivitiEndpoint endpoint) {
+    switch (toTargetType) {
+    case BODY_AS_MAP:
+      copyVariablesToBodyAsMap(variables, exchange);
+      break;
+
+    case BODY:
+      copyVariablesToBody(variables, exchange);
+      break;
+
+    case PROPERTIES:
+      copyVariablesToProperties(variables, exchange);
+    }
+  }
+  
   public void execute(ActivityExecution execution) throws Exception {
     setAppropriateCamelContext(execution);
-    //Retrieve the ActivitiComponent object.
-    ActivitiComponent component = camelContextObj.getComponent("activiti", ActivitiComponent.class);
-    modifyActivitiComponent(component);
     
-    ActivitiEndpoint endpoint = createEndpoint(execution);
-    Exchange exchange = createExchange(execution, endpoint);
-    endpoint.process(exchange);
-    handleCamelException(exchange);
-    execution.setVariables(ExchangeUtils.prepareVariables(exchange, endpoint));
+    final ActivitiEndpoint endpoint = createEndpoint(execution);
+    final Exchange exchange = createExchange(execution, endpoint);
+    
+    if (isASync(execution)) {
+
+      FutureTask<Void> future = new FutureTask<Void>(new Callable<Void>() {
+          public Void call() {
+            try {
+              endpoint.process(exchange);
+            } catch (Exception e) {  
+              throw new RuntimeException("Unable to process camel endpint asynchronously.");
+            }
+            return null;
+          }
+      });
+      ExecutorService executor = Executors.newSingleThreadExecutor();
+      executor.submit(future);
+      handleCamelException(exchange);
+
+    } else {
+      endpoint.process(exchange);
+      handleCamelException(exchange);
+      execution.setVariables(ExchangeUtils.prepareVariables(exchange, endpoint));
+    }
+  
     performDefaultOutgoingBehavior(execution);
   }
 
@@ -98,6 +152,7 @@ public abstract class CamelBehavior extends BpmnActivityBehavior implements Acti
     Exchange ex = new DefaultExchange(camelContextObj);
     ex.setProperty(ActivitiProducer.PROCESS_ID_PROPERTY, activityExecution.getProcessInstanceId());
     Map<String, Object> variables = activityExecution.getVariables();
+    updateTargetVariables(endpoint);
     copyVariables(variables, ex, endpoint);
     return ex;
   }
@@ -121,15 +176,19 @@ public abstract class CamelBehavior extends BpmnActivityBehavior implements Acti
   }
   
   protected void copyVariablesToBody(Map<String, Object> variables, Exchange exchange) {
-    Object camelBody = variables.get("camelBody");
+    Object camelBody = variables.get(ExchangeUtils.CAMELBODY);
     if(camelBody != null) {
       exchange.getIn().setBody(camelBody);
     }
   }
 
   protected String getProcessDefinitionKey(ActivityExecution execution) {
-    String id = execution.getActivity().getProcessDefinition().getId();
-    return id.substring(0, id.indexOf(":"));
+    PvmProcessDefinition processDefinition = execution.getActivity().getProcessDefinition();
+    return processDefinition.getKey();
+  }
+  
+  protected boolean isASync(ActivityExecution execution) {
+     return execution.getActivity().isAsync();
   }
   
   protected void setAppropriateCamelContext(ActivityExecution execution) {

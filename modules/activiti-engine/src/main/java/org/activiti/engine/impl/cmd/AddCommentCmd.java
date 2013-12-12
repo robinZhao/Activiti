@@ -24,6 +24,7 @@ import org.activiti.engine.impl.persistence.entity.ExecutionEntity;
 import org.activiti.engine.impl.persistence.entity.TaskEntity;
 import org.activiti.engine.impl.util.ClockUtil;
 import org.activiti.engine.runtime.Execution;
+import org.activiti.engine.task.Comment;
 import org.activiti.engine.task.Event;
 import org.activiti.engine.task.Task;
 
@@ -31,10 +32,11 @@ import org.activiti.engine.task.Task;
 /**
  * @author Tom Baeyens
  */
-public class AddCommentCmd implements Command<Object>{
+public class AddCommentCmd implements Command<Comment>{
 
   protected String taskId;
   protected String processInstanceId;
+  protected String type;
   protected String message;
   
   public AddCommentCmd(String taskId, String processInstanceId, String message) {
@@ -43,7 +45,14 @@ public class AddCommentCmd implements Command<Object>{
     this.message = message;
   }
   
-  public Object execute(CommandContext commandContext) {
+  public AddCommentCmd(String taskId, String processInstanceId, String type, String message) {
+    this.taskId = taskId;
+    this.processInstanceId = processInstanceId;
+    this.type = type;
+    this.message = message;
+  }
+  
+  public Comment execute(CommandContext commandContext) {
     
     // Validate task
     if (taskId != null) {
@@ -73,7 +82,7 @@ public class AddCommentCmd implements Command<Object>{
     String userId = Authentication.getAuthenticatedUserId();
     CommentEntity comment = new CommentEntity();
     comment.setUserId(userId);
-    comment.setType(CommentEntity.TYPE_COMMENT);
+    comment.setType( (type == null)? CommentEntity.TYPE_COMMENT : type );
     comment.setTime(ClockUtil.getCurrentTime());
     comment.setTaskId(taskId);
     comment.setProcessInstanceId(processInstanceId);
@@ -91,7 +100,7 @@ public class AddCommentCmd implements Command<Object>{
       .getCommentEntityManager()
       .insert(comment);
     
-    return null;
+    return comment;
   }
   
   protected String getSuspendedTaskException() {

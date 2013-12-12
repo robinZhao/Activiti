@@ -14,6 +14,7 @@
 package org.activiti.engine.impl.persistence.entity;
 
 import java.util.List;
+import java.util.Map;
 
 import org.activiti.engine.impl.DeploymentQueryImpl;
 import org.activiti.engine.impl.Page;
@@ -108,7 +109,6 @@ public class DeploymentEntityManager extends AbstractManager {
             ((JobEntity)job).delete();        
           }
         }
-       
       }
       
       // remove message event subscriptions:
@@ -150,9 +150,17 @@ public class DeploymentEntityManager extends AbstractManager {
     return getDbSqlSession().selectList(query, deploymentQuery, page);
   }
   
-  @SuppressWarnings("unchecked")
   public List<String> getDeploymentResourceNames(String deploymentId) {
     return getDbSqlSession().getSqlSession().selectList("selectResourceNamesByDeploymentId", deploymentId);
+  }
+
+  @SuppressWarnings("unchecked")
+  public List<Deployment> findDeploymentsByNativeQuery(Map<String, Object> parameterMap, int firstResult, int maxResults) {
+    return getDbSqlSession().selectListWithRawParameter("selectDeploymentByNativeQuery", parameterMap, firstResult, maxResults);
+  }
+
+  public long findDeploymentCountByNativeQuery(Map<String, Object> parameterMap) {
+    return (Long) getDbSqlSession().selectOne("selectDeploymentCountByNativeQuery", parameterMap);
   }
 
   public void close() {

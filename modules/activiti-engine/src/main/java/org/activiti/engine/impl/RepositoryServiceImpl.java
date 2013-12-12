@@ -40,6 +40,8 @@ import org.activiti.engine.impl.cmd.GetModelCmd;
 import org.activiti.engine.impl.cmd.GetModelEditorSourceCmd;
 import org.activiti.engine.impl.cmd.GetModelEditorSourceExtraCmd;
 import org.activiti.engine.impl.cmd.SaveModelCmd;
+import org.activiti.engine.impl.cmd.SetDeploymentCategoryCmd;
+import org.activiti.engine.impl.cmd.SetProcessDefinitionCategoryCmd;
 import org.activiti.engine.impl.cmd.SuspendProcessDefinitionCmd;
 import org.activiti.engine.impl.persistence.entity.ModelEntity;
 import org.activiti.engine.impl.pvm.ReadOnlyProcessDefinition;
@@ -50,6 +52,9 @@ import org.activiti.engine.repository.DeploymentQuery;
 import org.activiti.engine.repository.DiagramLayout;
 import org.activiti.engine.repository.Model;
 import org.activiti.engine.repository.ModelQuery;
+import org.activiti.engine.repository.NativeDeploymentQuery;
+import org.activiti.engine.repository.NativeModelQuery;
+import org.activiti.engine.repository.NativeProcessDefinitionQuery;
 import org.activiti.engine.repository.ProcessDefinition;
 import org.activiti.engine.repository.ProcessDefinitionQuery;
 import org.activiti.engine.task.IdentityLink;
@@ -81,9 +86,18 @@ public class RepositoryServiceImpl extends ServiceImpl implements RepositoryServ
   public void deleteDeployment(String deploymentId, boolean cascade) {
     commandExecutor.execute(new DeleteDeploymentCmd(deploymentId, cascade));
   }
+  
+  public void setDeploymentCategory(String deploymentId, String category) {
+    commandExecutor.execute(new SetDeploymentCategoryCmd(deploymentId, category));
+  }
 
   public ProcessDefinitionQuery createProcessDefinitionQuery() {
     return new ProcessDefinitionQueryImpl(commandExecutor);
+  }
+
+  @Override
+  public NativeProcessDefinitionQuery createNativeProcessDefinitionQuery() {
+    return new NativeProcessDefinitionQueryImpl(commandExecutor);
   }
 
   @SuppressWarnings("unchecked")
@@ -97,6 +111,11 @@ public class RepositoryServiceImpl extends ServiceImpl implements RepositoryServ
 
   public DeploymentQuery createDeploymentQuery() {
     return new DeploymentQueryImpl(commandExecutor);
+  }
+
+  @Override
+  public NativeDeploymentQuery createNativeDeploymentQuery() {
+    return new NativeDeploymentQueryImpl(commandExecutor);
   }
 
   public ProcessDefinition getProcessDefinition(String processDefinitionId) {
@@ -142,6 +161,10 @@ public class RepositoryServiceImpl extends ServiceImpl implements RepositoryServ
   public void activateProcessDefinitionByKey(String processDefinitionKey, boolean activateProcessInstances, Date activationDate) {
     commandExecutor.execute(new ActivateProcessDefinitionCmd(null, processDefinitionKey, activateProcessInstances, activationDate));
   }
+  
+  public void setProcessDefinitionCategory(String processDefinitionId, String category) {
+    commandExecutor.execute(new SetProcessDefinitionCategoryCmd(processDefinitionId, category)); 
+  }
 
   public InputStream getProcessModel(String processDefinitionId) {
     return commandExecutor.execute(new GetDeploymentProcessModelCmd(processDefinitionId));
@@ -178,7 +201,12 @@ public class RepositoryServiceImpl extends ServiceImpl implements RepositoryServ
   public ModelQuery createModelQuery() {
     return new ModelQueryImpl(commandExecutor);
   }
-  
+
+  @Override
+  public NativeModelQuery createNativeModelQuery() {
+    return new NativeModelQueryImpl(commandExecutor);
+  }
+
   public Model getModel(String modelId) {
     return commandExecutor.execute(new GetModelCmd(modelId));
   }

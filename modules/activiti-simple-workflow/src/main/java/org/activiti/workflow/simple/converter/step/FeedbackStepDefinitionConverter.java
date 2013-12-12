@@ -42,7 +42,9 @@ import org.activiti.workflow.simple.definition.StepDefinition;
  */
 public class FeedbackStepDefinitionConverter extends BaseStepDefinitionConverter<FeedbackStepDefinition, Map<String, BaseElement>> {
   
-  private static final String SELECT_PEOPLE_USER_TASK = "initiatorSelectPeopleTask";
+  private static final long serialVersionUID = 1L;
+  
+	private static final String SELECT_PEOPLE_USER_TASK = "initiatorSelectPeopleTask";
   private static final String FEEDBACK_FORK = "feedbackFork";
   private static final String FEEDBACK_JOIN = "feedbackJoin";
   private static final String FEEDBACK_USER_TASK = "gatherFeedback";
@@ -144,7 +146,7 @@ public class FeedbackStepDefinitionConverter extends BaseStepDefinitionConverter
       scriptField.setFieldName("script");
       
       StringBuilder script = new StringBuilder();
-      script.append("var feedbackProviders = new java.util.ArrayList();" + System.getProperty("line.separator"));
+      script.append("importPackage (java.util); var feedbackProviders = new ArrayList();" + System.getProperty("line.separator"));
       for (String feedbackProvider : feedbackStepDefinition.getFeedbackProviders()) {
         script.append("feedbackProviders.add('" + feedbackProvider + "');" + System.getProperty("line.separator"));
       }
